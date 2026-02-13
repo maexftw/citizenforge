@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Ship, LoadoutBuild, OptimizationPriority } from './types';
-import { SHIPS, STANTON_NODES, SC_API_KEY } from './constants';
+import { SHIPS, STANTON_NODES } from './constants';
 import { ShipCard } from './components/ShipCard';
 import { MapVisualizer } from './components/MapVisualizer';
 import { getBuildRecommendation } from './services/geminiService';

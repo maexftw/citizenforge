@@ -1,8 +1,14 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { LoadoutBuild, OptimizationPriority } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getApiKey = () => {
+  if (typeof window !== 'undefined') {
+    const localKey = localStorage.getItem('GEMINI_API_KEY');
+    if (localKey) return localKey;
+  }
+  // @ts-ignore
+  return import.meta.env.VITE_GEMINI_API_KEY || '';
+};
 
 export const getBuildRecommendation = async (
   shipName: string, 
@@ -10,6 +16,11 @@ export const getBuildRecommendation = async (
   startLocation: string,
   priority: OptimizationPriority
 ): Promise<LoadoutBuild> => {
+  const genAI = new GoogleGenAI(getApiKey());
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+  });
+
   const prompt = `You are a Star Citizen loadout and logistics expert. 
   The user is currently at: "${startLocation}".
   They want to configure a ${shipName} for: "${userIntent}".
@@ -26,10 +37,9 @@ export const getBuildRecommendation = async (
 
   Return the data in valid JSON matching the schema. Ensure shop locations match real Star Citizen shop locations (e.g., New Babbage, Area18, Orison, Lorville, GrimHEX, or specific moons).`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: {
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -69,5 +79,5 @@ export const getBuildRecommendation = async (
     },
   });
 
-  return JSON.parse(response.text);
+  return JSON.parse(result.response.text());
 };
