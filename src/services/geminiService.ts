@@ -3,7 +3,7 @@ import { LoadoutBuild, OptimizationPriority } from "../types";
 import * as scApi from './scApiService';
 
 const getModel = () => {
-  const API_KEY = process.env.API_KEY || "";
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
   if (!API_KEY) {
     throw new Error("GEMINI_API_KEY is not set in the environment.");
   }
@@ -50,12 +50,12 @@ const getModel = () => {
 
 export const getBuildRecommendation = async (
   shipName: string | null,
-  userIntent: string, 
+  userIntent: string,
   startLocation: string,
   priority: OptimizationPriority
 ): Promise<LoadoutBuild> => {
   const model = getModel();
-  const prompt = `You are a Star Citizen loadout and logistics expert. 
+  const prompt = `You are a Star Citizen loadout and logistics expert.
 
   USER CONTEXT:
   - Current Location: "${startLocation}"

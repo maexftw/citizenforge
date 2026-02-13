@@ -1,0 +1,28 @@
+[
+  {
+    "ship": "Anvil Arrow",
+    "goal": "Maximum DPS Combat",
+    "components": [
+      {
+        "name": "7-Series Distortion Repeater",
+        "type": "Weapon",
+        "size": 3,
+        "location": "Area18",
+        "shopName": "Center Mass",
+        "description": "Best in class for shield stripping."
+      },
+      {
+        "name": "FR-66",
+        "type": "Shield",
+        "size": 1,
+        "location": "New Babbage",
+        "shopName": "Omega Pro",
+        "description": "Highest regeneration rate."
+      }
+    ],
+    "totalCost": 150000,
+    "route": ["Seraphim Station", "Area18", "New Babbage"],
+    "totalJumps": 2,
+    "estimatedTravelTime": "8 mins"
+  }
+]
