@@ -1,7 +1,6 @@
-
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Ship, LoadoutBuild, OptimizationPriority } from './types';
-import { SHIPS, STANTON_NODES, SC_API_KEY } from './constants';
+import { SHIPS, STANTON_NODES } from './constants';
 import { ShipCard } from './components/ShipCard';
 import { MapVisualizer } from './components/MapVisualizer';
 import { getBuildRecommendation } from './services/geminiService';
@@ -38,13 +37,21 @@ const App: React.FC = () => {
   }, [shipSearch]);
 
   const handleAnalyze = useCallback(async () => {
-    if (!selectedShip || !userPrompt.trim()) return;
+    if (!userPrompt.trim()) return;
 
     setIsAnalyzing(true);
     setError(null);
+    setCurrentBuild(null);
     try {
-      const build = await getBuildRecommendation(selectedShip.name, userPrompt, startLocation, priority);
+      const build = await getBuildRecommendation(
+        selectedShip ? selectedShip.name : null,
+        userPrompt,
+        startLocation,
+        priority
+      );
       setCurrentBuild(build);
+
+      // If the AI found a ship that wasn't selected, we could update UI or just show it in build
     } catch (err) {
       console.error("Analysis failed:", err);
       setError("Analysis module offline. Link established but request timed out.");
@@ -53,313 +60,276 @@ const App: React.FC = () => {
     }
   }, [selectedShip, userPrompt, startLocation, priority]);
 
-  const reset = () => {
-    setSelectedShip(null);
-    setUserPrompt('');
-    setCurrentBuild(null);
-    setError(null);
-  };
-
+  // Click outside to close location search
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchingLocation(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#020617] text-slate-200">
-      {/* Navigation Sidebar */}
-      <aside className="w-full md:w-80 lg:w-96 p-6 border-b md:border-b-0 md:border-r border-slate-800/50 overflow-y-auto max-h-screen sticky top-0 bg-[#020617]/80 backdrop-blur-2xl z-20">
-        <div className="flex items-center gap-3 mb-10">
-          <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.3)]">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
+      {/* Background Grid & FX */}
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_-20%,#1e293b,transparent)] pointer-events-none" />
+      <div className="fixed inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
+
+      {/* HUD Header */}
+      <header className="relative z-10 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-8 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-blue-600 rounded-sm rotate-45 flex items-center justify-center border border-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+            <svg className="w-6 h-6 text-white -rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L3 7v10l9 5 9-5V7l-9-5zM12 22V12M12 12L3 7M12 12l9-5" />
             </svg>
           </div>
           <div>
-            <h1 className="font-orbitron text-xl font-black text-white uppercase tracking-tighter">
-              CitizenForge
-            </h1>
-            <p className="text-[9px] font-orbitron text-blue-500 uppercase tracking-[0.2em] font-bold">Stanton Architect</p>
+            <h1 className="font-orbitron text-lg font-black tracking-[0.2em] uppercase">CitizenForge</h1>
+            <p className="text-[9px] text-slate-500 font-orbitron uppercase tracking-widest">Loadout Architect // v4.2.1-STA</p>
           </div>
         </div>
 
-        <div className="space-y-8">
-          {/* Mission Start Location */}
-          <div className="space-y-4 relative" ref={searchRef}>
-            <div className="flex justify-between items-center">
-              <h2 className="font-orbitron text-[9px] text-slate-500 uppercase tracking-[0.3em]">Operational Start</h2>
-              <span className="text-[8px] font-bold text-emerald-500 uppercase">SYS-LINK OK</span>
+        <div className="flex gap-8">
+          <div className="text-right">
+            <p className="text-[8px] font-orbitron text-slate-600 uppercase tracking-widest mb-1">System Status</p>
+            <div className="flex items-center gap-2 justify-end">
+              <span className="text-[10px] font-orbitron text-emerald-500 uppercase font-bold tracking-widest">Linked</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10 container mx-auto px-6 py-10 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mb-10">
+          {/* Ship Selection Panel */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="flex justify-between items-end">
+              <h2 className="font-orbitron text-[10px] text-slate-500 uppercase tracking-[0.3em] font-black">Airframe Database</h2>
+              <span className="text-[9px] text-blue-500 font-orbitron uppercase font-bold px-2 py-0.5 border border-blue-500/20 rounded-sm">
+                {filteredShips.length} Active
+              </span>
+            </div>
+            
             <div className="relative group">
               <input 
                 type="text"
-                placeholder={`Fix: ${startLocation}`}
-                value={locationSearch}
-                onChange={(e) => {
-                  setLocationSearch(e.target.value);
-                  setIsSearchingLocation(true);
-                }}
-                onFocus={() => setIsSearchingLocation(true)}
-                className="w-full bg-slate-950/80 border border-slate-800 rounded px-4 py-2.5 text-xs text-slate-200 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-600 font-orbitron"
-              />
-              {isSearchingLocation && filteredLocations.length > 0 && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-slate-950 border border-slate-800 rounded shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
-                  {filteredLocations.map(node => (
-                    <button
-                      key={node.id}
-                      onClick={() => {
-                        setStartLocation(node.name);
-                        setLocationSearch('');
-                        setIsSearchingLocation(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-[10px] font-orbitron text-slate-400 hover:bg-blue-600 hover:text-white transition-colors flex justify-between items-center group/item"
-                    >
-                      <span className="group-hover/item:translate-x-1 transition-transform">{node.name}</span>
-                      <span className="text-[7px] opacity-40 uppercase tracking-widest">{node.type}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Logistics Optimization */}
-          <div className="space-y-4">
-            <h2 className="font-orbitron text-[9px] text-slate-500 uppercase tracking-[0.3em]">Pathfinder Bias</h2>
-            <div className="grid grid-cols-2 gap-2 bg-slate-950/50 p-1 rounded border border-slate-800/50">
-              <button 
-                onClick={() => setPriority('shortest')}
-                className={`py-2 rounded text-[9px] font-orbitron uppercase tracking-widest transition-all ${priority === 'shortest' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-600 hover:text-slate-400'}`}
-              >
-                Distance
-              </button>
-              <button 
-                onClick={() => setPriority('cheapest')}
-                className={`py-2 rounded text-[9px] font-orbitron uppercase tracking-widest transition-all ${priority === 'cheapest' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-600 hover:text-slate-400'}`}
-              >
-                Cost
-              </button>
-            </div>
-          </div>
-
-          {/* Fleet Registry */}
-          <div className="space-y-4 pt-8 border-t border-slate-800/50">
-            <div className="flex justify-between items-center">
-              <h2 className="font-orbitron text-[9px] text-slate-500 uppercase tracking-[0.3em]">Fleet Registry</h2>
-              <button onClick={reset} className="text-[8px] text-blue-500 hover:text-blue-400 transition-colors uppercase font-bold tracking-widest">Wipe Data</button>
-            </div>
-            
-            <div className="relative">
-              <input 
-                type="text"
-                placeholder="Search airframe..."
                 value={shipSearch}
                 onChange={(e) => setShipSearch(e.target.value)}
-                className="w-full bg-slate-950/30 border border-slate-800/50 rounded px-4 py-2 text-xs text-slate-400 focus:border-blue-500/30 outline-none transition-all placeholder:text-slate-800"
+                placeholder="Search Chassis..."
+                className="w-full bg-slate-900/50 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-blue-500/50 outline-none transition-all placeholder:text-slate-700"
               />
+              <svg className="absolute right-4 top-3.5 w-4 h-4 text-slate-700 group-focus-within:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 max-h-[380px] overflow-y-auto pr-2 custom-scrollbar">
-              {filteredShips.map((ship) => (
+            <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+              <div
+                onClick={() => setSelectedShip(null)}
+                className={`relative group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden border-2 p-4 flex flex-col items-center justify-center
+                  ${selectedShip === null ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'}`}
+              >
+                <p className="font-orbitron text-xs font-bold uppercase tracking-widest text-center">Let AI decide</p>
+                <p className="text-[8px] text-slate-600 uppercase mt-1">Free-form Query Mode</p>
+              </div>
+              {filteredShips.map(ship => (
                 <ShipCard 
                   key={ship.id} 
                   ship={ship} 
-                  isSelected={selectedShip?.id === ship.id} 
+                  isSelected={selectedShip?.id === ship.id}
                   onSelect={setSelectedShip} 
                 />
               ))}
-              {filteredShips.length === 0 && (
-                <div className="py-20 text-center">
-                  <p className="text-[10px] font-orbitron text-slate-700 uppercase tracking-widest">No matching registry found</p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      </aside>
 
-      {/* Main Tactical Analysis Canvas */}
-      <main className="flex-1 p-6 md:p-12 overflow-y-auto bg-slate-950 relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
-        
-        {!selectedShip ? (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
-            <div className="mb-8 relative">
-              <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center border border-slate-800 animate-pulse">
-                <svg className="w-10 h-10 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full animate-ping" />
-            </div>
-            <h2 className="font-orbitron text-2xl font-black text-white tracking-widest uppercase mb-4">Architect Module Ready</h2>
-            <p className="text-slate-500 text-sm leading-relaxed max-w-md font-light">
-              Select an airframe and define your mission profile. CitizenForge utilizes Gemini AI to compute optimal component arrays and logistics routes across the Stanton System.
-            </p>
-            <div className="mt-12 flex gap-12 border-t border-slate-900 pt-8">
-              <div className="text-center">
-                <p className="text-blue-500 font-orbitron text-lg">24.5k</p>
-                <p className="text-[8px] text-slate-600 uppercase tracking-[0.2em] mt-1 font-bold">Stanton Telemetry</p>
-              </div>
-              <div className="text-center">
-                <p className="text-blue-500 font-orbitron text-lg">Real-Time</p>
-                <p className="text-[8px] text-slate-600 uppercase tracking-[0.2em] mt-1 font-bold">Logistics Calculation</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-7xl mx-auto space-y-12">
-            {/* Command Interface */}
-            <section className="space-y-8">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                  <h2 className="text-[10px] font-orbitron text-blue-500 uppercase tracking-[0.5em] mb-2 font-bold">Tactical Interface Layer</h2>
-                  <div className="flex items-center gap-6">
-                    <h3 className="text-5xl font-orbitron font-black text-white uppercase tracking-tighter">{selectedShip.name}</h3>
-                    <div className="h-6 w-px bg-slate-800" />
-                    <div className="text-left">
-                      <p className="text-[8px] font-orbitron text-slate-600 uppercase tracking-widest">Status</p>
-                      <p className="text-[10px] font-orbitron text-emerald-500 uppercase font-bold tracking-widest">Calibration Active</p>
+          {/* Config & Intent Panel */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Location Select */}
+              <div className="space-y-3" ref={searchRef}>
+                <label className="text-[8px] font-orbitron text-slate-500 uppercase tracking-widest font-black block">Origin Deployment</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsSearchingLocation(!isSearchingLocation)}
+                    className="w-full bg-slate-900/50 border border-slate-800 rounded-lg px-5 py-4 text-left flex justify-between items-center group hover:border-slate-700 transition-all"
+                  >
+                    <span className="font-orbitron text-sm uppercase tracking-widest text-slate-300">{startLocation}</span>
+                    <svg className={`w-4 h-4 text-slate-600 transition-transform ${isSearchingLocation ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {isSearchingLocation && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-lg shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
+                      <div className="p-3 border-b border-slate-800">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={locationSearch}
+                          onChange={(e) => setLocationSearch(e.target.value)}
+                          placeholder="Search Stanton Hubs..."
+                          className="w-full bg-slate-950/50 border border-slate-800 rounded px-3 py-2 text-xs text-slate-200 outline-none focus:border-blue-500/50"
+                        />
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {filteredLocations.map(node => (
+                          <button
+                            key={node.id}
+                            onClick={() => {
+                              setStartLocation(node.name);
+                              setIsSearchingLocation(false);
+                            }}
+                            className="w-full px-5 py-3 text-left text-[10px] font-orbitron uppercase tracking-widest hover:bg-blue-600/10 hover:text-blue-400 transition-colors border-b border-slate-800/30 last:border-0"
+                          >
+                            {node.name} <span className="text-[8px] text-slate-600 ml-2">[{node.type}]</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex bg-slate-900/60 backdrop-blur-xl border border-slate-800/50 rounded-lg p-4 gap-12">
-                   <div>
-                     <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-1">Departure Vector</p>
-                     <p className="text-xs font-orbitron text-blue-400 uppercase tracking-widest font-bold">{startLocation}</p>
-                   </div>
-                   <div>
-                     <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-1">Analysis Focus</p>
-                     <p className="text-xs font-orbitron text-blue-400 uppercase tracking-widest font-bold">{priority}</p>
-                   </div>
+                  )}
                 </div>
               </div>
 
+              {/* Priority Select */}
+              <div className="space-y-3">
+                <label className="text-[8px] font-orbitron text-slate-500 uppercase tracking-widest font-black block">Optimization Routine</label>
+                <div className="flex bg-slate-900/50 border border-slate-800 rounded-lg p-1">
+                  <button
+                    onClick={() => setPriority('shortest')}
+                    className={`flex-1 py-3 px-4 rounded font-orbitron text-[9px] uppercase tracking-widest transition-all
+                      ${priority === 'shortest' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Shortest Distance
+                  </button>
+                  <button
+                    onClick={() => setPriority('cheapest')}
+                    className={`flex-1 py-3 px-4 rounded font-orbitron text-[9px] uppercase tracking-widest transition-all
+                      ${priority === 'cheapest' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Lowest Cost (UEC)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[8px] font-orbitron text-slate-500 uppercase tracking-widest font-black block">Analysis Parameters</label>
               <div className="relative">
                 <textarea
                   value={userPrompt}
                   onChange={(e) => setUserPrompt(e.target.value)}
-                  placeholder="Input mission profile and loadout requirements (e.g., 'Best shields for bunker defense' or 'Maximum DPS for PVP dogfighting')"
-                  className="w-full bg-slate-900/40 border border-slate-800/80 rounded-xl p-8 text-slate-200 focus:ring-1 focus:ring-blue-500/30 outline-none transition-all resize-none h-40 font-light placeholder:text-slate-800 text-lg leading-relaxed shadow-inner"
+                  placeholder="Input mission profile or ask: 'What is the best, most agile ship with the most damage?'"
+                  className="w-full bg-slate-900/40 border border-slate-800/80 rounded-xl p-6 text-slate-200 focus:ring-1 focus:ring-blue-500/30 outline-none transition-all resize-none h-32 font-light placeholder:text-slate-700 text-lg leading-relaxed"
                 />
                 <button 
                   onClick={handleAnalyze}
                   disabled={isAnalyzing || !userPrompt.trim()}
-                  className={`absolute bottom-8 right-8 px-12 py-4 rounded-sm font-orbitron text-[10px] uppercase tracking-[0.3em] font-black transition-all
+                  className={`absolute bottom-6 right-6 px-10 py-3 rounded-sm font-orbitron text-[9px] uppercase tracking-[0.2em] font-black transition-all
                     ${isAnalyzing || !userPrompt.trim() 
                       ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50' 
-                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_40px_rgba(37,99,235,0.4)] hover:scale-105 active:scale-95'}`}
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:scale-105 active:scale-95'}`}
                 >
-                  {isAnalyzing ? "Processing..." : "Run Simulation"}
+                  {isAnalyzing ? "Processing..." : "Run Analysis"}
                 </button>
               </div>
-              {error && <p className="text-red-500 text-[10px] font-orbitron text-center uppercase tracking-widest animate-pulse">{error}</p>}
-            </section>
+            </div>
+          </div>
+        </div>
 
-            {/* Simulated Data Display */}
-            {currentBuild && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out">
-                {/* Visual Mapping & Logistics */}
-                <div className="lg:col-span-5 space-y-8">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-orbitron text-[10px] text-slate-500 uppercase tracking-[0.3em]">System Telemetry Map</h4>
-                      <span className="text-[8px] text-blue-500 font-orbitron uppercase">Vector Layer 4.0</span>
-                    </div>
-                    <MapVisualizer 
-                      route={currentBuild.route} 
-                      components={currentBuild.components} 
-                    />
-                  </div>
+        {isAnalyzing && (
+          <div className="py-20 flex flex-col items-center justify-center space-y-6">
+            <div className="relative">
+              <div className="w-16 h-16 border-2 border-blue-500/20 rounded-full animate-ping" />
+              <div className="absolute inset-0 w-16 h-16 border-t-2 border-blue-500 rounded-full animate-spin" />
+            </div>
+            <div className="text-center">
+              <p className="font-orbitron text-[10px] text-blue-500 uppercase tracking-[0.5em] font-black animate-pulse">Syncing with SC-API</p>
+              <p className="text-[8px] text-slate-600 font-orbitron uppercase tracking-widest mt-2">Accessing Star Citizen Global Database...</p>
+            </div>
+          </div>
+        )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-900/30 border border-slate-800 p-6 rounded-lg backdrop-blur-sm">
-                      <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-2 tracking-widest">Q-Jumps Required</p>
-                      <p className="text-3xl font-orbitron text-blue-400 font-black">{currentBuild.totalJumps}</p>
-                    </div>
-                    <div className="bg-slate-900/30 border border-slate-800 p-6 rounded-lg backdrop-blur-sm">
-                      <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-2 tracking-widest">Estimated Travel Time</p>
-                      <p className="text-3xl font-orbitron text-blue-400 font-black truncate">{currentBuild.estimatedTravelTime}</p>
-                    </div>
-                  </div>
+        {error && (
+          <div className="p-8 border border-red-500/30 bg-red-500/5 rounded-xl text-center mb-10">
+            <p className="text-red-500 text-[10px] font-orbitron uppercase tracking-widest animate-pulse">{error}</p>
+          </div>
+        )}
 
-                  <div className="bg-slate-900/20 border border-slate-800/50 rounded-xl overflow-hidden backdrop-blur-md">
-                    <div className="bg-slate-800/30 px-6 py-3 border-b border-slate-800 flex justify-between items-center">
-                      <h5 className="font-orbitron text-[9px] text-slate-500 uppercase tracking-widest font-black">Flight Sequence</h5>
-                    </div>
-                    <div className="p-8 space-y-6">
-                      {currentBuild.route.map((loc, i) => (
-                        <div key={i} className="flex items-center gap-6 group">
-                          <div className="relative flex flex-col items-center">
-                            <div className={`w-6 h-6 rounded-sm rotate-45 flex items-center justify-center text-[9px] font-black z-10 transition-all duration-500
-                              ${i === 0 ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'}`}>
-                              <span className="-rotate-45">{i === 0 ? 'O' : i}</span>
-                            </div>
-                            {i < currentBuild.route.length - 1 && (
-                              <div className="w-px h-12 bg-gradient-to-b from-blue-600/50 to-transparent mt-2 mb-2" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-200 font-orbitron uppercase tracking-tighter">{loc}</p>
-                            <p className="text-[8px] text-slate-600 uppercase tracking-[0.2em] font-bold">
-                              {i === 0 ? 'Mission Origin' : `Quantum Junction ${i}`}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tactical Components Inventory */}
-                <div className="lg:col-span-7 space-y-8">
-                  <div className="flex justify-between items-end border-b border-slate-800 pb-4">
-                    <h4 className="font-orbitron text-[10px] text-slate-500 uppercase tracking-[0.3em]">Loadout Inventory</h4>
-                    <div className="text-right">
-                      <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-1">Total Build Investment</p>
-                      <p className="text-2xl font-orbitron text-blue-500 font-black tracking-tighter">
-                        {currentBuild.totalCost.toLocaleString()} <span className="text-xs text-slate-600">UEC</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {currentBuild.components.map((comp, idx) => (
-                      <div key={idx} className="bg-slate-900/40 border border-slate-800/80 rounded p-6 hover:border-blue-900 transition-all group relative overflow-hidden backdrop-blur-sm">
-                        <div className="flex justify-between items-start mb-4">
-                          <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] px-2 py-1 bg-blue-600/10 rounded border border-blue-600/20 font-orbitron">
-                            {comp.type}
-                          </span>
-                          <span className="text-[10px] font-orbitron text-slate-700 font-bold">SIZE {comp.size}</span>
-                        </div>
-                        <h5 className="font-orbitron text-slate-100 text-sm mb-2 group-hover:text-blue-400 transition-colors uppercase font-black tracking-tighter leading-tight">{comp.name}</h5>
-                        <p className="text-[10px] text-slate-500 line-clamp-2 mb-6 h-8 leading-relaxed font-light">{comp.description}</p>
-                        
-                        <div className="pt-6 border-t border-slate-800/50 space-y-3">
-                          <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-slate-600 uppercase font-orbitron tracking-widest text-[8px]">Authorized Vendor</span>
-                            <span className="text-slate-300 font-bold uppercase tracking-tighter text-[11px]">{comp.shopName}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px]">
-                            <span className="text-slate-600 uppercase font-orbitron tracking-widest text-[8px]">Stanton Hub</span>
-                            <span className="text-blue-400 font-bold uppercase tracking-tighter text-[11px]">{comp.location}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] pt-1">
-                            <span className="text-slate-600 uppercase font-orbitron tracking-widest text-[8px]">Standard UEC</span>
-                            <span className="text-blue-500 font-orbitron font-black text-xs">{comp.price?.toLocaleString() || '---'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        {currentBuild && (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out pb-20">
+            {/* Recommendation Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-900 pb-8">
+              <div>
+                <p className="text-[8px] font-orbitron text-blue-500 uppercase tracking-[0.3em] mb-2">Recommendation Result</p>
+                <h3 className="text-4xl font-orbitron font-black text-white uppercase tracking-tighter">{currentBuild.ship}</h3>
+                <p className="text-slate-500 text-sm mt-1 max-w-2xl">{currentBuild.goal}</p>
+              </div>
+              <div className="flex gap-4">
+                <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-lg min-w-[150px]">
+                  <p className="text-[8px] font-orbitron text-slate-600 uppercase mb-1">Total Cost</p>
+                  <p className="text-xl font-orbitron text-blue-500 font-black">{currentBuild.totalCost.toLocaleString()} <span className="text-[10px]">UEC</span></p>
                 </div>
               </div>
-            )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+              {/* Left Column: Map & Route */}
+              <div className="lg:col-span-5 space-y-8">
+                <div className="space-y-4">
+                  <h4 className="font-orbitron text-[10px] text-slate-500 uppercase tracking-[0.3em]">Logistics Map</h4>
+                  <MapVisualizer
+                    route={currentBuild.route}
+                    components={currentBuild.components}
+                  />
+                </div>
+
+                <div className="bg-slate-900/30 border border-slate-800 rounded-xl p-6">
+                   <h5 className="font-orbitron text-[9px] text-slate-500 uppercase tracking-widest mb-6">Quantum Route</h5>
+                   <div className="space-y-4">
+                      {currentBuild.route.map((loc, i) => (
+                        <div key={i} className="flex items-center gap-4">
+                          <div className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-blue-600'}`} />
+                          <p className="text-xs font-orbitron text-slate-300 uppercase tracking-widest">{loc}</p>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              </div>
+
+              {/* Right Column: Components */}
+              <div className="lg:col-span-7 space-y-6">
+                <h4 className="font-orbitron text-[10px] text-slate-500 uppercase tracking-[0.3em]">Recommended Components</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentBuild.components.map((comp, idx) => (
+                    <div key={idx} className="bg-slate-900/40 border border-slate-800 rounded p-5 hover:border-blue-900 transition-all group">
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest px-1.5 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 font-orbitron">
+                          {comp.type}
+                        </span>
+                        <span className="text-[9px] font-orbitron text-slate-700">S{comp.size}</span>
+                      </div>
+                      <h5 className="font-orbitron text-slate-100 text-xs mb-1 uppercase font-black">{comp.name}</h5>
+                      <p className="text-[9px] text-slate-600 mb-4 h-6 overflow-hidden">{comp.description}</p>
+
+                      <div className="pt-4 border-t border-slate-800/50 space-y-2">
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-slate-600 uppercase font-orbitron tracking-widest text-[7px]">Vendor</span>
+                          <span className="text-slate-300 font-bold uppercase">{comp.shopName}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-slate-600 uppercase font-orbitron tracking-widest text-[7px]">Location</span>
+                          <span className="text-blue-400 font-bold uppercase">{comp.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
