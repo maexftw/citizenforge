@@ -1,13 +1,12 @@
-
 export interface Component {
-  id: string;
+  id?: string;
   name: string;
-  type: 'Shield' | 'Weapon' | 'Power Plant' | 'Cooler' | 'Quantum Drive';
+  type: string;
   size: number;
-  grade: 'A' | 'B' | 'C' | 'D';
-  class: 'Military' | 'Civilian' | 'Stealth' | 'Industrial' | 'Competition';
+  grade?: string;
+  class?: string;
   description: string;
-  price: number;
+  price?: number;
   location: string;
   shopName: string;
 }

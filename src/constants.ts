@@ -68,5 +68,5 @@ export const STANTON_LINKS: MapLink[] = [
   { source: 'arc_corp', target: 'crusader' },
 ];
 
-export const SC_API_BASE_URL = "https://starcitizen-api.com";
-export const SC_API_KEY = "noCe6VhHj97uQva8uxTak2AugdD0cpuO";
+export const SC_API_BASE_URL = "https://api.starcitizen-api.com";
+export const SC_API_KEY = import.meta.env.VITE_SC_API_KEY;
