@@ -1,0 +1,7 @@
+{
+  "name": "CitizenForge: Star Citizen Loadout Architect",
+  "description": "A high-end Star Citizen ship configurator that uses AI to optimize loadouts based on user needs, identifies shop locations, and calculates the most efficient travel routes across the Stanton system.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
